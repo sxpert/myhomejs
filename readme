@@ -2,7 +2,7 @@ javascript module for Open Web Net connectivity
 
 sample code :
 
-var myhome = require('./myhome');
+var myhome = require('myhome');
 var mhengine = new myhome.engine({
 	host:'<server>',
 	pass:'12345'

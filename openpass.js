@@ -86,3 +86,4 @@ function testCalcPass (pass, nonce, expected) {
 testCalcPass ('12345', '603356072', '25280520');
 testCalcPass ('12345', '410501656', '119537670');
 testCalcPass ('12345', '630292165', '4269684735');
+testCalcPass ('12345', '523781130', '537331200');
