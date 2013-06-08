@@ -1,4 +1,33 @@
 {
-	"name": "myhome",
-	"main": "myhome.js"
+  "name": "myhome",
+  "main": "myhome.js",
+  "readmeFilename": "readme",
+  "gitHead": "8d91546f25206cc5155c86ab2543288a8084c2bf",
+  "description": "javascript module for Open Web Net connectivity",
+  "version": "0.0.0",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/sxpert/myhomejs.git"
+  },
+  "keywords": [
+    "OpenWebNet",
+    "MyHome",
+    "Legrand",
+    "Bticino",
+    "Arteor"
+  ],
+  "author": "Raphaël Jacquot",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/sxpert/myhomejs/issues"
+  },
+	"engines": {
+		"node": ">=0.8.x"
+	}
 }
