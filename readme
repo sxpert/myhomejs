@@ -1,1 +1,12 @@
 javascript module for Open Web Net connectivity
+
+sample code :
+
+var myhome = require('./myhome');
+var mhengine = new myhome.engine({
+	host:'<server>',
+	pass:'12345'
+});
+mhengine.on ('monitoring', function () {
+	console.log ('successfully connected, started monitoring');
+});
