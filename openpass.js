@@ -46,8 +46,8 @@ function calcPass (pass, nonce) {
 				break;
 			case '7':
 				num1 = num2 & 0x0000FF00;
-				num1 = num1 + (( num2 & 0x000000FF ) << 24 )
-				num1 = num1 + (( num2 & 0x00FF0000 ) >>> 16 )
+				num1 = num1 + (( num2 & 0x000000FF ) << 24 );
+				num1 = num1 + (( num2 & 0x00FF0000 ) >>> 16 );
 				num2 = ( num2 & 0xFF000000 ) >>> 8;
 				num1 = num1 + num2;
 				break;
