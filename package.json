@@ -4,7 +4,7 @@
   "readmeFilename": "readme",
   "gitHead": "8d91546f25206cc5155c86ab2543288a8084c2bf",
   "description": "javascript module for Open Web Net connectivity",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "directories": {
     "doc": "docs"
   },

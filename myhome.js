@@ -5,7 +5,8 @@ var openpass = require('./openpass');
 
 var MODE_MONITOR = 0;
 var MODE_COMMAND = 1;
-var MODE_STR = [ 'MON', 'CMD' ];
+var MODE_CONFIG = 2;
+var MODE_STR = [ 'MON', 'CMD', 'CNF' ];
 var DIR_IN = 0;
 var DIR_OUT = 1;
 var DIR_STR = ['<=','=>'];
@@ -15,7 +16,8 @@ var STATE_CONNECTING = 1;
 var STATE_LOGGING_IN = 2;
 var STATE_CONNECTED = 3;
 var PKT_ACK = '*#*1##';
-var PKT_NACK = '*#*0##'; 
+var PKT_NACK = '*#*0##';
+var PKT_START_CONFIG = '*99*0##'; 
 var PKT_START_COMMAND = '*99*9##';
 var PKT_START_MONITOR = '*99*1##';
 
@@ -30,22 +32,30 @@ var myHomeLayer1 = function (params) {
 	events.EventEmitter.call (this);
 	var self = this;
 	var mode = params.mode;
-	var log = params.log;
+	self.log = params.log;
 	var state = STATE_UNCONNECTED;
 	
-	function logPacket (direction, packet) {
-		if (log) {
-			var now = new Date();
-			console.log (now.toISOString()+' - '+MODE_STR[mode]+' '+DIR_STR[direction]+' '+packet);
+	this._logPacket = function (string) {
+		console.log (string);
+	};
+	
+	this.pktToString = function (direction, packet) {
+		var now = new Date();
+		return now.toISOString()+' - '+MODE_STR[mode]+' '+DIR_STR[direction]+' '+packet;
+	};
+	
+	this.logPacket = function (direction, packet) {
+		if (self.log) {
+			self._logPacket (self.pktToString(direction,packet));
 		}
-	}
+	};
 	
 	/*
 	 * send a packet through the connection
 	 */
 	this.sendPacket = function (pkt) {
-		logPacket(DIR_OUT, pkt);
-		conn.write (pkt);
+		self.logPacket(DIR_OUT, pkt);
+		self.conn.write (pkt);
 	};
 	
 	/*
@@ -61,7 +71,7 @@ var myHomeLayer1 = function (params) {
 			packet = m[1];
 			sdata = m[2];
 
-			logPacket (DIR_IN, packet);
+			self.logPacket (DIR_IN, packet);
 			switch (state) {
 				case STATE_UNCONNECTED:
 					/* initial ack from gateway */
@@ -74,6 +84,9 @@ var myHomeLayer1 = function (params) {
 								break;
 							case MODE_COMMAND:
 								self.sendPacket (PKT_START_COMMAND);
+								break;
+							case MODE_CONFIG:
+								self.sendPacket (PKT_START_CONFIG);
 								break;
 						}						
 					}
@@ -119,12 +132,12 @@ var myHomeLayer1 = function (params) {
 	 * server can still send stuff that will get received 
 	 */
 	this.end = function () {
-		conn.end();
+		this.conn.end();
 	}
 	
 	/* TODO: catch EADDRNOTAVAIL - device not present */
-	var conn = net.connect(params);
-	conn.on ('data', self.parseMyOpenPacket);	
+	this.conn = net.connect(params);
+	this.conn.on ('data', self.parseMyOpenPacket);	
 };
 util.inherits(myHomeLayer1, events.EventEmitter);	
 
@@ -144,12 +157,18 @@ var myHomeLayer2 = function (params) {
 	 * params.done	  : callback for when we're at the end
 	 */
 	this.sendCommand = function (params) {
+		if (params)
+			if (params.log!==undefined)
+				var log = params.log;
+			var mode = MODE_COMMAND;
+			if (params.mode!==undefined)
+				mode = params.mode;
 		/* connects to the same device as the parent connection */
 		var connparams = {
 			"host": host,
 			"port": port,
 			"pass": pass,
-			"mode": MODE_COMMAND,
+			"mode": mode,
 			"log" : log,
 		};
 		var commandconn = new myHomeLayer1 (connparams);
@@ -157,23 +176,25 @@ var myHomeLayer2 = function (params) {
 			commandconn.sendPacket (params.command);
 		});
 		commandconn.on ('packet', function (data) {
-			function end (data, index) {
+			function done (data, index) {
 				commandconn.end();
-				if (params.end)
-					params.end(data, index);
+				if (params.done)
+					params.done(data, index);
 			}
 			/* check if data is in stopon variable */
 			if (params.stopon!==undefined) {
 				if (Array.isArray(params.stopon)) {
 					var i = params.stopon.indexOf(data);
-					if (i!=-1)	return end (data, i);
+					if (i!=-1)	return done (data, i);
 				} else if (data==params.stopon) 
-					return end (data, 0);
+					return done (data, 0);
 			} 
 			if (params.packet) 
-				params.packet(data);
+				params.packet(commandconn, data);
 		});
 	};
+	
+
 	
 	var self = this;
 	
@@ -208,12 +229,16 @@ var myHomeLayer2 = function (params) {
 		"log" : log,
 	};
 	
+	this.params = function () {
+		return {host: host, port: port, pass: pass};
+	}
+	
 	/* start the connection to the myhome gateway */	
-	var monitor = new myHomeLayer1 (params);
-	monitor.on('connected', function () {
+	this.monitor = new myHomeLayer1 (params);
+	this.monitor.on('connected', function () {
 		self.emit ('monitoring');
 	});
-	monitor.on('packet', function (data) {
+	this.monitor.on('packet', function (data) {
 		self.emit ('packet', data);
 	});
 };
@@ -222,10 +247,101 @@ util.inherits(myHomeLayer2, events.EventEmitter);
 //=============================================================================
 
 /*
- * state handler
- * opens connection, grabs packets, store complete system state
+ * system level layer
+ * advanced functionnality
  */
+ 
+ var myHomeLayer3 = function (params) {
+ 	events.EventEmitter.call (this);
 
+	var self = this;
+	
+	this.layer2 = new myHomeLayer2(params);
+	this.layer1 = this.layer2.monitor;
+	this.sendCommand = this.layer2.sendCommand;
+	
+	//============================================================================
+	
+	/*
+	 * private function to scan the system for 
+	 * the available mac addresses
+	 */
+	function _scanSystem (params) {
+		// state variable
+		var SCAN_INIT = 0;
+		var SCAN_RECEIVE = 1;
+		var state = SCAN_INIT;
+		var macs = [];
+		if (params)
+			if (params.log!==undefined)
+				var log = params.log;
+		var l2p = self.layer2.params();
+		connparams = {
+			"host": l2p.host,
+			"port": l2p.port,
+			"pass": l2p.pass,
+			"mode": MODE_CONFIG,
+			"log" : log,
+		};
+		var confconn = new myHomeLayer1 (connparams);
+		confconn.on ('connected', function () {	
+			confconn.sendPacket ('*1001*12*0##');
+		});
+		confconn.on ('packet', function (pkt) {
+			switch (state) {
+				case SCAN_INIT:
+					// expecting PKT_ACK at this point.
+					if (pkt==PKT_ACK) {
+						state = SCAN_RECEIVE;
+						// send the start scan command
+						confconn.sendPacket (params.cmd);
+					} else {
+						console.log ('unexpected packet expected \''+PKT_ACK+'\' got\''+pkt+'\'');
+					}
+					break;
+				case SCAN_RECEIVE:
+					if (pkt==PKT_ACK) {
+						// all done.
+						confconn.end();
+						if (params.done) 
+							return params.done (macs);
+					} else {
+						var m = pkt.match(/\*#(\d+)\*(\d+)\*(\d+)\*(\d+)##/);
+						macs.push(parseInt(m[4],10));
+					}
+					break;
+			}
+		});
+	};
+	
+	/*
+	 * callable system scanning functions
+	 */
+	this.scanSystem = function (log, callback) {
+		_scanSystem({log: log, cmd: '*#1001*0*13##', done: callback});
+	}	
+	this.scanUnconfigured = function (log, callback) {
+		_scanSystem({log: log, cmd: '*#1001*0*13#0##', done: callback});
+	}		
+	this.scanConfigured = function (log, callback) {
+		_scanSystem({log: log, cmd: '*#1001*0*13#1##', done: callback});
+	}
+	
+	//============================================================================
+	
+	this.layer2.on('monitoring', function () {
+		self.emit('monitoring');
+	});
+	this.layer2.on('packet', function (data) {
+		// parse packet if we can...
+		self.emit ('packet', data);
+	});
+};
+util.inherits(myHomeLayer3, events.EventEmitter);	
+
+exports.MODE_MONITOR = MODE_MONITOR;
+exports.MODE_COMMAND = MODE_COMMAND;
+exports.MODE_CONFIG = MODE_CONFIG;
 exports.PKT_ACK = PKT_ACK;
 exports.PKT_NACK = PKT_NACK;
-exports.engine = myHomeLayer2;
+exports.engine = myHomeLayer3;

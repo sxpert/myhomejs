@@ -1,0 +1,42 @@
+Virtual configuration notes:
+============================
+
+    0. connexion mode
+
+the virtual configurator uses a connection mode that is not documented.
+
+this type of session starts with *99*0##
+
+    1. Obtaining mac addresses
+
+there are 3 commands to obtain mac addresses in the system
+
+    1.1. SCS mac addresses of all devices on the system
+	
+*#1001*0*13##
+
+    1.2. SCS mac addresses of all non configured devices on the system
+
+*#1001*0*13#0##
+
+    1.3. SCS mac addresses of all configured devices on the system
+
+*#1001*0*13#1##
+
+	1.4. response
+	
+these commands are followed by answers with
+
+*#1001*0*13*[mac address in decimal]##
+
+at the end we have the standard acknowledge
+
+*#*1##
+
+	2. requesting configuration parameters
+
+*1001*10#[mac address in decimal]*0##
+
+you get a confirmation, and the configuration information arrives in 
+*#1001*... frames on the monitor session
+
