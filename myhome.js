@@ -329,6 +329,56 @@ util.inherits(myHomeLayer2, events.EventEmitter);
 	
 	//============================================================================
 	
+	this.getDeviceConfig = function (mac, log, callback) {
+		if (log===undefined)
+			log=true;
+		var l2p = self.layer2.params();
+		connparams = {
+			"host": l2p.host,
+			"port": l2p.port,
+			"pass": l2p.pass,
+			"mode": MODE_CONFIG,
+			"log" : log,
+		};
+		var GC_INIT = 0;
+		var GC_SPEC_CONF = 1;
+		var state = GC_INIT;
+		var confdata = [];
+		var confconn = new myHomeLayer1 (connparams);
+		var _confReader = function (pkt) {
+			// end of configuration data ?
+			var m = pkt.match(/\*1001\*4\*0##/);
+			if (m!==null) {
+				self.layer1.removeListener ('packet', _confReader);
+				// get groups data
+				confconn.sendPacket('*#1001*0*38#1##');
+				confconn.end();
+				callback (confdata);
+			} else {
+				m = pkt.match(/\*#1001\*/);
+				if (m!==null)
+					confdata.push (pkt);
+			}
+		};
+		confconn.on ('connected', function () {	
+			self.layer1.on ('packet', _confReader);
+			confconn.sendPacket ('*1001*10#'+mac+'*0##');			
+		});
+		confconn.on ('packet', function (pkt) {
+			switch (state) {
+				case GC_INIT:
+					if (pkt==PKT_ACK) 
+						state = GC_SPEC_CONF;
+					break;
+				case GC_SPEC_CONF:
+					if (pkt==PKT_ACK) {
+					}
+			}
+		});
+	}
+	
+	//============================================================================
+	
 	this.layer2.on('monitoring', function () {
 		self.emit('monitoring');
 	});
