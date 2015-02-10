@@ -212,11 +212,11 @@ var myHomeLayer2 = function (params) {
 
 	/* default values */
 	if (host===undefined)
-		host = '192.168.0.35';
+		host = '10.0.0.200';
 	if (port===undefined) 
 		port = 20000;
 	if (pass===undefined)
-		pass = '12345';
+		pass = '64036403';
 	if (log===undefined)
 		log = true;
 	
