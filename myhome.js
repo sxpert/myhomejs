@@ -95,6 +95,8 @@ var myHomeLayer1 = function (params) {
 					if (packet==PKT_ACK) {
 						/* connected already */
 						/* state should be STATE_CONNECTED at this point, I guess */
+						self.emit ('connected');
+						state = STATE_CONNECTED;
 					} else {
 						/* probably need to login */
 						/* login nonce is of the form *#<numbers>## */
